@@ -82,7 +82,7 @@ final class MonthCell: KVKCollectionViewCell {
                 return
             }
             
-            if Platform.currentInterface == .phone && UIApplication.shared.orientation.isLandscape { return }
+            if Platform.currentInterface == .phone && UIApplication.shared.orientation.isLandscape && !monthStyle.showEventsInIphone { return }
             
             if monthStyle.showMonthNameInFirstDay {
                 showMonthName(day: day)
@@ -119,7 +119,7 @@ final class MonthCell: KVKCollectionViewCell {
                 
                 if count > titlesCount {
                     label.font = monthStyle.fontEventTitle
-                    label.lineBreakMode = .byTruncatingMiddle
+                    label.lineBreakMode = .byTruncatingTail
                     label.adjustsFontSizeToFitWidth = true
                     label.minimumScaleFactor = 0.95
                     label.textAlignment = .center
@@ -145,7 +145,7 @@ final class MonthCell: KVKCollectionViewCell {
                     }
                     return
                 } else {
-                    if !event.isAllDay || Platform.currentInterface == .phone {
+                    if (!event.isAllDay || Platform.currentInterface == .phone) && !monthStyle.showEventsInIphone {
                         label.attributedText = addIconBeforeLabel(eventList: [event],
                                                                   textAttributes: [.font: monthStyle.fontEventTitle,
                                                                                    .foregroundColor: monthStyle.colorEventTitle],
@@ -158,13 +158,13 @@ final class MonthCell: KVKCollectionViewCell {
                                                                   paragraphSpacing: 0)
                     } else {
                         label.font = monthStyle.fontEventTitle
-                        label.lineBreakMode = .byTruncatingMiddle
+                        label.lineBreakMode = .byTruncatingTail
                         label.adjustsFontSizeToFitWidth = true
                         label.minimumScaleFactor = 0.95
                         label.textAlignment = .left
-                        label.backgroundColor = event.color?.value ?? .systemGray
+                        label.backgroundColor = event.color?.value.withAlphaComponent(0.3) ?? .systemGray
                         label.textColor = allDayStyle.textColor
-                        label.text = " \(event.title.timeline) "
+                        label.text = " \(event.title.month ?? "") "
                         label.setRoundCorners(monthStyle.eventCorners, radius: monthStyle.eventCornersRadius)
                     }
                     
@@ -207,8 +207,11 @@ final class MonthCell: KVKCollectionViewCell {
                 case .phone:
                     let topLineLayer = CALayer()
                     topLineLayer.name = "line_layer"
-                    
-                    if monthStyle.isHiddenSeparatorOnEmptyDate && day.type == .empty {
+                    if monthStyle.showEventsInIphone {
+                        layer.borderWidth = monthStyle.widthSeparator
+                        layer.borderColor = monthStyle.colorSeparator.cgColor
+                    }
+                    else if monthStyle.isHiddenSeparatorOnEmptyDate && day.type == .empty {
                         layer.sublayers?.removeAll(where: { $0.name == "line_layer" })
                     } else {
                         topLineLayer.frame = CGRect(x: 0, y: 0, width: frame.width, height: monthStyle.widthSeparator)
@@ -412,13 +415,13 @@ final class MonthCell: KVKCollectionViewCell {
                                     lineSpacing: CGFloat = 2,
                                     paragraphSpacing: CGFloat = 10) -> NSAttributedString {
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = Platform.currentInterface != .phone ? .left : .center
+        paragraphStyle.alignment = .left
         paragraphStyle.tabStops = [NSTextTab(textAlignment: .left, location: indentation, options: [:])]
         paragraphStyle.defaultTabInterval = indentation
         paragraphStyle.lineSpacing = lineSpacing
         paragraphStyle.paragraphSpacing = paragraphSpacing
         paragraphStyle.headIndent = indentation
-        paragraphStyle.lineBreakMode = .byTruncatingMiddle
+        paragraphStyle.lineBreakMode = .byTruncatingTail
         
         return eventList.reduce(NSMutableAttributedString()) { (_, event) -> NSMutableAttributedString in
             let text: String
