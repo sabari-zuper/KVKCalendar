@@ -32,9 +32,7 @@ final class DayView: UIView {
     var timelinePage = TimelinePageView(maxLimit: 0, pages: [], frame: .zero)
     
     private var topBackgroundView = UIView()
-    private var isAvailableEventViewer: Bool {
-        Platform.currentInterface != .phone
-    }
+    private var isAvailableEventViewer: Bool = false
     private var scrollToCurrentTimeOnlyOnInit: Bool?
     
     init(parameters: Parameters, frame: CGRect) {
