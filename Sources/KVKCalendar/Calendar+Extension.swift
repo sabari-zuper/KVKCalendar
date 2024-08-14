@@ -296,7 +296,7 @@ extension UIRectCorner {
     
 }
 
-public protocol KVKCellIdentifierProxy: AnyObject {
+protocol KVKCellIdentifierProxy: AnyObject {
     
     static var kvkIdentifier: String { get }
     
@@ -312,33 +312,13 @@ extension UIView: KVKCellIdentifierProxy {
 
 public protocol KVKDequeueProxyProtocol: AnyObject {}
 
-//public extension KVKDequeueProxyProtocol {
-//
-//    func kvkDequeueCell<T, U: KVKCellIdentifierProxy>(type: CalendarType,
-//                                                      view: T,
-//                                                      id: String = U.kvkIdentifier,
-//                                                      indexPath: IndexPath? = nil,
-//                                                      configure: (U) -> Void) -> U? {
-//        switch type {
-//
-//        case .month:
-//            if let cell = (view as? UITableView)?.kvkDequeueCell(id: id,
-//                                                                 indexPath: indexPath,
-//                                                                 configure: configure) {
-//                return cell
-//            } else {
-//                return nil
-//            }
-//        default:
-//            return nil
-//        }
-//    }
-//
-//}
-
 public extension KVKDequeueProxyProtocol where Self: UITableView {
     
-    func kvkDequeueCell<T: UITableViewCell>(id: String = T.kvkIdentifier, indexPath: IndexPath? = nil, configure: (T) -> Void) -> T {
+    func kvkDequeueCell<T: UITableViewCell>(
+        id: String = T.kvkIdentifier,
+        indexPath: IndexPath? = nil,
+        configure: (T) -> Void
+    ) -> T {
         kvkRegister(T.self)
         
         let cell: T
@@ -372,7 +352,11 @@ public extension KVKDequeueProxyProtocol where Self: UITableView {
 
 public extension KVKDequeueProxyProtocol where Self: UICollectionView {
     
-    func kvkDequeueCell<T: UICollectionViewCell>(id: String = T.kvkIdentifier, indexPath: IndexPath, configure: (T) -> Void) -> T {
+    func kvkDequeueCell<T: UICollectionViewCell>(
+        id: String = T.kvkIdentifier,
+        indexPath: IndexPath,
+        configure: (T) -> Void
+    ) -> T {
         kvkRegister(T.self, id: id)
         
         let cell: T
@@ -404,25 +388,5 @@ public extension KVKDequeueProxyProtocol where Self: UICollectionView {
 
 extension UITableView: KVKDequeueProxyProtocol {}
 extension UICollectionView: KVKDequeueProxyProtocol {}
-
-@available(iOS 13.4, *)
-extension UIView: UIPointerInteractionDelegate {
-    
-    func addPointInteraction() {
-        let interaction = UIPointerInteraction(delegate: self)
-        addInteraction(interaction)
-    }
-    
-    public func pointerInteraction(_ interaction: UIPointerInteraction, styleFor region: UIPointerRegion) -> UIPointerStyle? {
-        var pointerStyle: UIPointerStyle?
-        
-        if let interactionView = interaction.view {
-            let targetedPreview = UITargetedPreview(view: interactionView)
-            pointerStyle = UIPointerStyle(effect: .highlight(targetedPreview))
-        }
-        return pointerStyle
-    }
-    
-}
 
 #endif

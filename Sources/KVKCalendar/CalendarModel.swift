@@ -31,7 +31,7 @@ public enum TimeHourSystem: Int {
     case twelve = 12
     case twentyFour = 24
     
-    var hours: [String] {
+    func getHours(isEndOfDayZero: Bool = true) -> [String] {
         switch self {
         case .twelveHour, .twelve:
             let array = ["12"] + Array(1...11).map { String($0) }
@@ -45,7 +45,7 @@ public enum TimeHourSystem: Int {
             return am + pm
         case .twentyFourHour, .twentyFour:
             let array = ["00:00"] + Array(1...24).map { (i) -> String in
-                let i = i % 24
+                let i = isEndOfDayZero ? i % 24 : i 
                 var string = i < 10 ? "0" + "\(i)" : "\(i)"
                 string.append(":00")
                 return string
@@ -158,7 +158,7 @@ public struct Event {
     public var recurringType: Event.RecurringType = .none
     
     ///custom style
-    ///(in-progress) works only with a default (widht & height)
+    ///(in-progress) works only with a default (width & height)
     public var style: EventStyle? = nil
     public var systemEvent: EKEvent? = nil
     
@@ -399,6 +399,7 @@ extension CalendarSettingProtocol {
     func timeFormatter(date: Date, format: String) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = format
+        formatter.locale = style.locale
         return formatter.string(from: date)
     }
 }
@@ -541,6 +542,9 @@ public protocol CalendarDelegate: AnyObject {
     /// drag & drop events and resize
     func didChangeEvent(_ event: Event, start: Date?, end: Date?)
     
+    /// Controls whether event can be added
+    func willAddNewEvent(_ event: Event, _ date: Date?) -> Bool
+
     /// add new event
     func didAddNewEvent(_ event: Event, _ date: Date?)
     
@@ -560,6 +564,9 @@ public protocol CalendarDelegate: AnyObject {
     func didDeselectEvent(_ event: Event, animated: Bool)
     
     func didUpdateStyle(_ style: Style, type: CalendarType)
+    
+    /// get current displaying header date
+    func didDisplayHeaderTitle(_ date: Date, style: Style, type: CalendarType)
 }
 
 public extension CalendarDelegate {
@@ -578,7 +585,9 @@ public extension CalendarDelegate {
     func eventViewerFrame(_ frame: CGRect) {}
     
     func didChangeEvent(_ event: Event, start: Date?, end: Date?) {}
-        
+    
+    func willAddNewEvent(_ event: Event, _ date: Date?) -> Bool { true }
+    
     func didAddNewEvent(_ event: Event, _ date: Date?) {}
     
     func didDisplayEvents(_ events: [Event], dates: [Date?]) {}
@@ -592,6 +601,8 @@ public extension CalendarDelegate {
     func didChangeViewerFrame(_ frame: CGRect) {}
     
     func didUpdateStyle(_ style: Style, type: CalendarType) {}
+    
+    func didDisplayHeaderTitle(_ date: Date, style: Style, type: CalendarType) {}
 }
 
 // MARK: - Private Display dataSource

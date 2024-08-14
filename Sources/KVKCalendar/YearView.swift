@@ -190,6 +190,7 @@ extension YearView: UICollectionViewDataSource {
             return collectionView.kvkDequeueView(indexPath: index) { (headerView: YearHeaderView) in
                 headerView.style = data.style
                 headerView.date = date
+                delegate?.didDisplayHeaderTitle(date, style: style, type: .year)
             }
         }
     }
@@ -208,6 +209,7 @@ extension YearView: UICollectionViewDelegate, UICollectionViewDelegateFlowLayout
         let index = getIndexForDirection(data.style.year.scrollDirection, indexPath: indexPath)
         let date = data.sections[index.section].months[index.row].date
         let formatter = DateFormatter()
+        formatter.locale = style.locale
         formatter.dateFormat = "dd.MM.yyyy"
         let newDate = formatter.date(from: "\(data.date.kvkDay).\(date.kvkMonth).\(date.kvkYear)")
         data.date = newDate ?? Date()
@@ -229,7 +231,7 @@ extension YearView: UICollectionViewDelegate, UICollectionViewDelegateFlowLayout
         var width: CGFloat
         var height = collectionView.frame.height
         
-        if height > 0 {
+        if height > 0 && height >= data.style.year.heightTitleHeader {
             height -= data.style.year.heightTitleHeader
         }
         

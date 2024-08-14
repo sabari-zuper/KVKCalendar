@@ -9,7 +9,7 @@
 
 import UIKit
 
-final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
+public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
     
     struct Parameters {
         var style: Style
@@ -36,7 +36,10 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
     }
     var eventPreview: UIView?
     var eventResizePreview: ResizeEventView?
-    var eventPreviewSize = CGSize(width: 150, height: 150)
+    lazy var eventPreviewSize: CGSize = {
+        getEventPreviewSize()
+    }()
+
     var isResizableEventEnable = false
     var forceDisableScrollToCurrentTime = false
     var potentiallyCenteredLabel: TimelineLabel?
@@ -58,7 +61,7 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
     private let tagBackgroundView = -50
     private(set) var tagAllDayEventView = -70
     private(set) var tagStubEvent = -80
-    private(set) var timeLabels = [TimelineLabel]()
+    public private(set) var timeLabels = [TimelineLabel]()
     private(set) var timeSystem: TimeHourSystem
     private let timerKey = "CurrentHourTimerKey"
     private(set) var events = [Event]()
@@ -75,7 +78,7 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
         return view
     }()
     
-    private(set) lazy var movingMinuteLabel: TimelineLabel = {
+    public private(set) lazy var movingMinuteLabel: TimelineLabel = {
         let label = TimelineLabel()
         label.adjustsFontSizeToFitWidth = true
         label.textColor = style.timeline.movingMinutesColor
@@ -92,11 +95,15 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
         return view
     }()
     
-    private(set) lazy var scrollView: UIScrollView = {
+    public private(set) lazy var scrollView: UIScrollView = {
         let scroll = UIScrollView()
         scroll.delegate = self
         return scroll
     }()
+    
+    private(set) lazy var tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(forceDeselectEvent))
+    
+    private(set) lazy var longTapGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(addNewEvent))
     
     init(parameters: Parameters, frame: CGRect) {
         self.paramaters = parameters
@@ -105,11 +112,15 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
         self.selectedDate = Date()
         super.init(frame: frame)
         
+        timeLabelFormatter.locale = style.locale
+
         addSubview(scrollView)
         setupConstraints()
         
-        let tap = UITapGestureRecognizer(target: self, action: #selector(forceDeselectEvent))
-        addGestureRecognizer(tap)
+        addGestureRecognizer(tapGestureRecognizer)
+        
+        // long tap to create a new event preview
+        addGestureRecognizer(longTapGestureRecognizer)
         
         if style.timeline.scale != nil {
             let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinchZooming))
@@ -157,7 +168,7 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
             self.currentLineView.valueHash = nextDate.kvkMinute.hashValue
             self.currentLineView.date = nextDate
             
-            if self.isDisplayedTimes {
+            if self.isDisplayedTimes && style.timeline.lineHourStyle == .withTime {
                 if let timeNext = self.getTimelineLabel(hour: nextDate.kvkHour + 1) {
                     timeNext.isHidden = self.currentLineView.frame.intersects(timeNext.frame)
                 }
@@ -185,7 +196,7 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
         scrollView.addSubview(currentLineView)
         movingCurrentLineHour()
         
-        if isDisplayedTimes {
+        if isDisplayedTimes && style.timeline.lineHourStyle == .withTime {
             if let timeNext = getTimelineLabel(hour: date.kvkHour + 1) {
                 timeNext.isHidden = currentLineView.frame.intersects(timeNext.frame)
             }
@@ -306,7 +317,7 @@ final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
         }
         
         // add time label to timeline
-        let labels = createTimesLabel(start: startHour)
+        let labels = createTimesLabel(start: startHour, end: style.timeline.endHour)
         timeLabels = labels.times
         // add separator line
         let horizontalLines = createHorizontalLines(times: timeLabels)

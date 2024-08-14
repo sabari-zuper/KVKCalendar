@@ -9,7 +9,7 @@
 
 import UIKit
 
-final class DayView: UIView {
+public final class DayView: UIView {
     
     private var parameters: Parameters
     private let tagEventViewer = -10
@@ -29,7 +29,7 @@ final class DayView: UIView {
                                                                   type: .day,
                                                                   style: Style()))
     
-    var timelinePage = TimelinePageView(maxLimit: 0, pages: [], frame: .zero)
+    public var timelinePage = TimelinePageView(maxLimit: 0, pages: [], frame: .zero)
     
     private var topBackgroundView = UIView()
     private var isAvailableEventViewer: Bool = false
@@ -55,6 +55,7 @@ final class DayView: UIView {
     }
     
     func reloadData(_ events: [Event]) {
+        scrollableWeekView.reloadCustomCornerHeaderViewIfNeeded()
         parameters.data.recurringEvents = events.filter { $0.recurringType != .none }
         parameters.data.events = parameters.data.filterEvents(events, date: parameters.data.date)
         timelinePage.timelineView?.create(dates: [parameters.data.date],
@@ -96,11 +97,15 @@ extension DayView: TimelineDelegate {
     }
     
     func nextDate() {
-        parameters.data.date = scrollableWeekView.calculateDateWithOffset(1, needScrollToDate: true)
+        let date = scrollableWeekView.calculateDateWithOffset(1, needScrollToDate: true)
+        parameters.data.date = date
+        delegate?.didDisplayHeaderTitle(date, style: style, type: .day)
     }
     
     func previousDate() {
-        parameters.data.date = scrollableWeekView.calculateDateWithOffset(-1, needScrollToDate: true)
+        let date = scrollableWeekView.calculateDateWithOffset(-1, needScrollToDate: true)
+        parameters.data.date = date
+        delegate?.didDisplayHeaderTitle(date, style: style, type: .day)
     }
     
     func didResizeEvent(_ event: Event, startTime: ResizeTime, endTime: ResizeTime) {
@@ -121,6 +126,17 @@ extension DayView: TimelineDelegate {
         let endDate = style.calendar.date(from: endComponents)
         
         delegate?.didChangeEvent(event, start: startDate, end: endDate)
+    }
+    
+    func willAddNewEvent(_ event: Event, minute: Int, hour: Int, point: CGPoint) -> Bool {
+        var components = DateComponents()
+        components.year = parameters.data.date.kvkYear
+        components.month = parameters.data.date.kvkMonth
+        components.day = parameters.data.date.kvkDay
+        components.hour = hour
+        components.minute = minute
+        let date = style.calendar.date(from: components)
+        return delegate?.willAddNewEvent(event, date) ?? true
     }
     
     func didAddNewEvent(_ event: Event, minute: Int, hour: Int, point: CGPoint) {
@@ -343,9 +359,11 @@ extension DayView: CalendarSettingProtocol {
                                                         style: style))
         view.dataSource = dataSource
         view.didSelectDate = { [weak self] (date, type) in
+            guard let self = self else { return }
             if let item = date {
-                self?.parameters.data.date = item
-                self?.delegate?.didSelectDates([item], type: type, frame: nil)
+                self.parameters.data.date = item
+                self.delegate?.didSelectDates([item], type: type, frame: nil)
+                self.delegate?.didDisplayHeaderTitle(item, style: self.style, type: type)
             }
         }
         view.didTrackScrollOffset = { [weak self] (offset, stop) in

@@ -31,6 +31,7 @@ final class MonthCell: KVKCollectionViewCell {
     private func timeFormatter(date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = style.timeSystem.format
+        formatter.locale = style.locale
         return formatter.string(from: date)
     }
     
@@ -270,10 +271,6 @@ final class MonthCell: KVKCollectionViewCell {
         dateLabel.frame = dateFrame
         dateLabel.tag = defaultTagView
         contentView.addSubview(dateLabel)
-                
-        if #available(iOS 13.4, *) {
-            contentView.addPointInteraction()
-        }
     }
     
     required init?(coder aDecoder: NSCoder) {
