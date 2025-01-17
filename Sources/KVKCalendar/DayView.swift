@@ -128,7 +128,7 @@ extension DayView: TimelineDelegate {
         delegate?.didChangeEvent(event, start: startDate, end: endDate)
     }
     
-    func willAddNewEvent(_ event: Event, minute: Int, hour: Int, point: CGPoint) -> Bool {
+    func willAddNewEvent(_ event: Event, minute: Int, hour: Int, point: CGPoint) -> Event? {
         var components = DateComponents()
         components.year = parameters.data.date.kvkYear
         components.month = parameters.data.date.kvkMonth
@@ -136,7 +136,7 @@ extension DayView: TimelineDelegate {
         components.hour = hour
         components.minute = minute
         let date = style.calendar.date(from: components)
-        return delegate?.willAddNewEvent(event, date) ?? true
+        return delegate?.willAddNewEvent(event, date)
     }
     
     func didAddNewEvent(_ event: Event, minute: Int, hour: Int, point: CGPoint) {
@@ -168,7 +168,6 @@ extension DayView: TimelineDelegate {
         endComponents.hour = hour + hourOffset
         endComponents.minute = minute + minuteOffset
         let endDate = style.calendar.date(from: endComponents)
-        
         delegate?.didChangeEvent(event, start: startDate, end: endDate)
     }
     
@@ -200,6 +199,8 @@ extension DayView: CalendarSettingProtocol {
         } else {
             timelineFrame.size.height = frame.height
         }
+        
+        timelineFrame.size.height -= style.timeline.offsetTop
         
         if isAvailableEventViewer {
             if let defaultWidth = style.timeline.widthEventViewer {
@@ -325,6 +326,8 @@ extension DayView: CalendarSettingProtocol {
             timelineFrame.origin.y = scrollableWeekView.frame.height
             timelineFrame.size.height -= scrollableWeekView.frame.height
         }
+        
+        timelineFrame.origin.y += style.timeline.offsetTop
         
         if isAvailableEventViewer {
             if UIApplication.shared.orientation.isPortrait {
