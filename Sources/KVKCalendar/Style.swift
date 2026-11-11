@@ -34,6 +34,7 @@ public struct Style {
     public var timeZoneIds: [String] = ["America/New_York", "Europe/London", "Europe/Moscow", "Asia/Tokyo"]
     public var selectedTimeZones: [TimeZone]
     
+    @MainActor
     public init(configureAsDefaultCalendar: Bool = true) {
         selectedTimeZones = [timezone]
         
@@ -576,16 +577,7 @@ public struct YearStyle {
     public var colorSelectDate: UIColor = .white
     public var colorWeekendDate: UIColor = .gray
     public var colorBackgroundWeekendDate: UIColor = .clear
-    public var weekFontPad: UIFont = .boldSystemFont(ofSize: 14)
-    public var weekFontPhone: UIFont = .boldSystemFont(ofSize: 8)
-    public var weekFont: UIFont {
-        switch Platform.currentInterface {
-        case .phone:
-            return weekFontPhone
-        default:
-            return weekFontPad
-        }
-    }
+    public var weekFont: UIFont = .boldSystemFont(ofSize: 14)
     public var fontTitle: UIFont = .systemFont(ofSize: 19)
     public var colorTitle: UIColor = .black
     public var colorBackgroundHeader: UIColor = gainsboro.withAlphaComponent(0.2)
@@ -593,16 +585,7 @@ public struct YearStyle {
     public var colorTitleHeader: UIColor = .black
     public var heightTitleHeader: CGFloat = 50
     public var alignmentTitleHeader: NSTextAlignment = .left
-    public var fontDayTitlePad: UIFont = .systemFont(ofSize: 15)
-    public var fontDayTitlePhone: UIFont = .systemFont(ofSize: 11)
-    public var fontDayTitle: UIFont {
-        switch Platform.currentInterface {
-        case .phone:
-            return fontDayTitlePhone
-        default:
-            return fontDayTitlePad
-        }
-    }
+    public var fontDayTitle: UIFont = .systemFont(ofSize: 15)
     public var colorDayTitle: UIColor = .black
     public var selectCalendarType: CalendarType = .month
     public var isAnimateSelection: Bool = false
@@ -681,6 +664,7 @@ public struct ListViewStyle {
 }
 
 extension Style {
+    @MainActor
     var adaptiveStyle: Style {
         guard followInSystemTheme else { return self }
         
@@ -831,7 +815,7 @@ extension Style: Equatable {
 
 extension YearStyle: Equatable {
     
-    public static func == (lhs: YearStyle, rhs: YearStyle) -> Bool {
+    nonisolated public static func == (lhs: YearStyle, rhs: YearStyle) -> Bool {
         func compare<E: Equatable>(_ kp: KeyPath<YearStyle, E>) -> Bool {
             return lhs[keyPath: kp] == rhs[keyPath: kp]
         }
@@ -844,8 +828,6 @@ extension YearStyle: Equatable {
         && compare(\.colorSelectDate)
         && compare(\.colorWeekendDate)
         && compare(\.colorBackgroundWeekendDate)
-        && compare(\.weekFontPad)
-        && compare(\.weekFontPhone)
         && compare(\.weekFont)
         && compare(\.fontTitle)
         && compare(\.colorTitle)
@@ -854,8 +836,6 @@ extension YearStyle: Equatable {
         && compare(\.colorTitleHeader)
         && compare(\.heightTitleHeader)
         && compare(\.alignmentTitleHeader)
-        && compare(\.fontDayTitlePad)
-        && compare(\.fontDayTitlePhone)
         && compare(\.fontDayTitle)
         && compare(\.colorDayTitle)
         && compare(\.selectCalendarType)
