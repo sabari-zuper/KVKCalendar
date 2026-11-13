@@ -5,7 +5,7 @@ Status: implemented (week and day timelines).
 ## Goal
 
 The all-day area above the timeline grows with the number of all-day events and can push the
-timeline far down. We want it to show at most N rows (3 in our app) and a **"+N more"** button.
+timeline far down. We want it to show at most N rows (2 in our app, 5 when expanded) and a **"+N more"** button.
 Tapping the button, or the chevron under the "all-day" title, expands the area to show every
 event. When expanded, it shows a **"Show less"** button and an up chevron to collapse it again.
 
@@ -24,7 +24,8 @@ The feature is opt-in. If `maxCollapsedRows` is `nil`, the old behaviour is unch
 
 ```swift
 var style = Style()
-style.allDay.maxCollapsedRows = 3
+style.allDay.maxCollapsedRows = 2
+style.allDay.maxExpandedRows = 5   // optional, the rest scrolls
 ```
 
 New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
@@ -32,7 +33,8 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 | Property | Default | Notes |
 | --- | --- | --- |
 | `maxCollapsedRows` | `nil` | Rows shown while collapsed. `nil` = feature off. |
-| `maxExpandedHeight` | `nil` | Cap for the expanded area. `nil` = half the timeline height; the area scrolls if the events don't fit. |
+| `maxExpandedRows` | `nil` | Rows visible at once when expanded; the rest scrolls inside the area. Never fewer than `maxCollapsedRows`. Takes priority over `maxExpandedHeight`. |
+| `maxExpandedHeight` | `nil` | Height cap for the expanded area, used when `maxExpandedRows` is `nil`. `nil` = half the timeline height. It can't make the area smaller than the collapsed rows, so a cap below the collapsed height (e.g. 100pt with 3 rows) makes expanding look like nothing happens. |
 | `moreTitleFormat` | `"+%d more"` | `%d` = number of hidden events. |
 | `lessTitle` | `"Show less"` | `nil` hides the button when expanded (only the chevron collapses). |
 | `moreFont`, `moreTextColor`, `moreBackgroundColor`, `moreBorderColor`, `moreHeight` | | Pill button look. Dark mode handled in `adaptiveStyle`. |
@@ -57,7 +59,8 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 2. **Height**: `TimelineView.createAllDayEvents` (`Timeline+Extension.swift`).
    - Collapsed = `visibleRows * allDay.height` + the button strip
      (`AllDayView.moreButtonAreaHeight`).
-   - Expanded = all rows + the button strip, capped at `maxExpandedHeight`.
+   - Expanded = all rows + the button strip, limited to `maxExpandedRows` rows, or to
+     `maxExpandedHeight` if `maxExpandedRows` is `nil`. Rows over the limit scroll inside the area.
 3. **Drawing**: `AllDayView`.
    - While collapsed, only the first `visibleRows` events of each column are drawn and the
      inner scroll view is disabled.
@@ -103,7 +106,7 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 - `Sources/KVKCalendar/TimelinePageView.swift`: `reloadAllDayExpanded`.
 - `Sources/KVKCalendar/WeekView.swift`, `DayView.swift`: keep the state across pages.
 - `Tests/KVKCalendarTests/AllDayCollapseTests.swift`: counting logic.
-- `Example/KVKCalendar/KVKCalendarSettings.swift`: enables `maxCollapsedRows = 3`.
+- `Example/KVKCalendar/KVKCalendarSettings.swift`: `maxCollapsedRows = 2`, `maxExpandedRows = 5`.
 
 ## Decisions
 
@@ -143,7 +146,8 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
   `RBSymbolLayer`, and the PNG keeps showing the old symbol. Check `.symbolReplace` on a
   device or simulator, or check `imageView.image` in the test.
 - Manual check in the app:
-  - Week view with 4+ all-day events on one day shows 3 rows and "+N more".
+  - Week view with 3+ all-day events on one day shows 2 rows and "+N more".
+  - Expanding with 6+ events on a day shows 5 rows; the rest scroll inside the area.
   - Tapping the pill or the chevron expands and collapses with an animation, and the chevron
     swaps ⌄ / ⌃ with the SF Symbol replace effect on iOS 17+.
   - The state is kept when paging between weeks.

@@ -623,6 +623,9 @@ public struct AllDayStyle {
     public var maxCollapsedRows: Int? = nil
     /// Maximum height of the expanded all-day area. `nil` - half of the timeline height.
     public var maxExpandedHeight: CGFloat? = nil
+    /// Maximum number of rows shown at once in the expanded all-day area, the rest scrolls.
+    /// Takes priority over `maxExpandedHeight`.
+    public var maxExpandedRows: Int? = nil
     /// Format for the collapsed button title, `%d` is replaced by the number of hidden events.
     public var moreTitleFormat: String = "+%d more"
     /// Title for the button in the expanded state. `nil` hides the button (the chevron still collapses).
@@ -1063,6 +1066,7 @@ extension AllDayStyle: Equatable {
         && compare(\.isHiddenStubEvent)
         && compare(\.maxCollapsedRows)
         && compare(\.maxExpandedHeight)
+        && compare(\.maxExpandedRows)
         && compare(\.moreTitleFormat)
         && compare(\.lessTitle)
         && compare(\.moreFont)

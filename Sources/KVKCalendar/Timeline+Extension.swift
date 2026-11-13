@@ -310,10 +310,14 @@ extension TimelineView {
         if let maxRows = style.allDay.maxCollapsedRows {
             let info = AllDayView.collapseInfo(prepareEvents: events, type: paramaters.type, maxRows: maxRows)
             let isExpanded = paramaters.isAllDayExpanded && info.isCollapsible
-            let rows = isExpanded ? info.totalRows : info.visibleRows
+            var rows = isExpanded ? info.totalRows : info.visibleRows
+            if isExpanded, let maxExpandedRows = style.allDay.maxExpandedRows {
+                // never smaller than the collapsed area
+                rows = min(rows, max(maxExpandedRows, maxRows))
+            }
             let moreAreaHeight = AllDayView.moreButtonAreaHeight(info: info, isExpanded: isExpanded, style: style.allDay)
             allDayHeight = CGFloat(rows) * style.allDay.height + moreAreaHeight + 2
-            if isExpanded {
+            if isExpanded && style.allDay.maxExpandedRows == nil {
                 let maxExpandedHeight = style.allDay.maxExpandedHeight ?? bounds.height * 0.5
                 allDayHeight = min(allDayHeight, max(maxExpandedHeight, style.allDay.height * CGFloat(maxRows) + moreAreaHeight))
             }
