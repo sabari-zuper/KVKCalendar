@@ -5,7 +5,7 @@ Status: implemented (week and day timelines).
 ## Goal
 
 The all-day area above the timeline grows with the number of all-day events and can push the
-timeline far down. We want it to show at most N rows (2 in our app, 5 when expanded) and a **"+N more"** button.
+timeline far down. We want it to show at most N rows (2 in our app, 4 when expanded) and a **"+N more"** button.
 Tapping the button, or the chevron under the "all-day" title, expands the area to show every
 event. When expanded, it shows a **"Show less"** button and an up chevron to collapse it again.
 
@@ -25,7 +25,7 @@ The feature is opt-in. If `maxCollapsedRows` is `nil`, the old behaviour is unch
 ```swift
 var style = Style()
 style.allDay.maxCollapsedRows = 2
-style.allDay.maxExpandedRows = 5   // optional, the rest scrolls
+style.allDay.maxExpandedRows = 4   // optional, the rest scrolls
 ```
 
 New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
@@ -106,7 +106,7 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 - `Sources/KVKCalendar/TimelinePageView.swift`: `reloadAllDayExpanded`.
 - `Sources/KVKCalendar/WeekView.swift`, `DayView.swift`: keep the state across pages.
 - `Tests/KVKCalendarTests/AllDayCollapseTests.swift`: counting logic.
-- `Example/KVKCalendar/KVKCalendarSettings.swift`: `maxCollapsedRows = 2`, `maxExpandedRows = 5`.
+- `Example/KVKCalendar/KVKCalendarSettings.swift`: `maxCollapsedRows = 2`, `maxExpandedRows = 4`.
 
 ## Decisions
 
@@ -147,7 +147,7 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
   device or simulator, or check `imageView.image` in the test.
 - Manual check in the app:
   - Week view with 3+ all-day events on one day shows 2 rows and "+N more".
-  - Expanding with 6+ events on a day shows 5 rows; the rest scroll inside the area.
+  - Expanding with 5+ events on a day shows 4 rows; the rest scroll inside the area.
   - Tapping the pill or the chevron expands and collapses with an animation, and the chevron
     swaps ⌄ / ⌃ with the SF Symbol replace effect on iOS 17+.
   - The state is kept when paging between weeks.

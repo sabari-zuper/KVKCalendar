@@ -211,7 +211,7 @@ extension KVKCalendarSettings {
         style.month.autoSelectionDateWhenScrolling = true
         style.timeline.useDefaultCorderHeader = true
         style.allDay.maxCollapsedRows = 2
-        style.allDay.maxExpandedRows = 5
+        style.allDay.maxExpandedRows = 4
         return style
     }
 
