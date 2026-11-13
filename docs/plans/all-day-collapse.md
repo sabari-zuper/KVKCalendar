@@ -36,7 +36,11 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 | `moreTitleFormat` | `"+%d more"` | `%d` = number of hidden events. |
 | `lessTitle` | `"Show less"` | `nil` hides the button when expanded (only the chevron collapses). |
 | `moreFont`, `moreTextColor`, `moreBackgroundColor`, `moreBorderColor`, `moreHeight` | | Pill button look. Dark mode handled in `adaptiveStyle`. |
-| `expandIcon`, `collapseIcon`, `expandIconColor` | `chevron.down` / `chevron.up` | Chevron under the "all-day" title. |
+| `expandSymbolName`, `collapseSymbolName` | `"chevron.down"` / `"chevron.up"` | SF Symbols under the "all-day" title (collapsed / expanded). |
+| `expandSymbolConfiguration` | 11pt, semibold | `UIImage.SymbolConfiguration` for the symbols. |
+| `expandIcon`, `collapseIcon` | `nil` | Custom images instead of the SF Symbols. |
+| `expandIconColor` | dark gray | Tint of the icon. |
+| `expandIconAnimation` | `.symbolReplace` | `.symbolReplace` = SF Symbol replace transition (iOS 17+, falls back to `.rotate`), `.rotate` = turns 180°, `.none`. |
 | `expandAnimationDuration` | `0.25` | Expand/collapse animation length. `0` turns the animation off. |
 
 ## How it works
@@ -70,9 +74,15 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
      `adjustedContentInset`, so a safe-area inset is taken into account.
    - **animates** the change when `expandAnimationDuration > 0`. The rebuilt `AllDayView`
      starts at the old frame with `clipsToBounds = true` and animates to its new frame. In
-     the same block, the timeline's top inset and offset move to their new values, the
-     chevron rotates 180° (`prepareToggleAnimation` / `performToggleAnimation`), and the
-     pill fades in. Expanding reveals the extra rows from the top down; collapsing shrinks
+     the same block, the timeline's top inset and offset move to their new values and the
+     pill fades in (`prepareToggleAnimation` / `performToggleAnimation`).
+   - The chevron is animated according to `expandIconAnimation`:
+     - `.symbolReplace`: the new view starts with the previous symbol, then
+       `performToggleSymbolTransition()` calls
+       `setSymbolImage(_:contentTransition: .replace.downUp)` on the next run-loop turn.
+       The previous symbol has to be on screen first, otherwise there is nothing to
+       transition from.
+     - `.rotate`: the new symbol starts turned 180° and rotates back inside the animation block. Expanding reveals the extra rows from the top down; collapsing shrinks
      the area while the timeline slides up with it.
    - Cached neighbour pages are switched without animation (they are off screen).
 5. **Keeping the state**: `TimelineView.Parameters.isAllDayExpanded` reports changes through
@@ -129,8 +139,12 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
   write a temporary `@testable` test that puts a `TimelineView` in a `UIWindow` and calls
   `create(dates:events:recurringEvents:selectedDate:)` and `toggleAllDayExpanded()`. Render
   it with `view.layer.render(in:)` to a PNG (`drawHierarchy` gives a blank image in SPM tests).
+  `layer.render` can't capture SF Symbol effects: on iOS 17+ the symbol is drawn by an
+  `RBSymbolLayer`, and the PNG keeps showing the old symbol. Check `.symbolReplace` on a
+  device or simulator, or check `imageView.image` in the test.
 - Manual check in the app:
-  - Week view with 3+ all-day events on one day shows 2 rows and "+N more".
-  - Tapping the pill or the chevron expands and collapses with an animation.
+  - Week view with 4+ all-day events on one day shows 3 rows and "+N more".
+  - Tapping the pill or the chevron expands and collapses with an animation, and the chevron
+    swaps ⌄ / ⌃ with the SF Symbol replace effect on iOS 17+.
   - The state is kept when paging between weeks.
   - The timeline stays right under the bar.

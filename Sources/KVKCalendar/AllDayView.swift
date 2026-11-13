@@ -85,7 +85,7 @@ final class AllDayView: UIView {
     
     private lazy var expandImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .center
         imageView.tag = 123
         return imageView
     }()
@@ -163,17 +163,60 @@ final class AllDayView: UIView {
         params.didToggleExpand?()
     }
     
+    private var iconAnimation: AllDayStyle.ExpandIconAnimation {
+        let animation = params.style.allDay.expandIconAnimation
+        if animation == .symbolReplace {
+            if #available(iOS 17.0, *) {
+                return .symbolReplace
+            }
+            return .rotate
+        }
+        return animation
+    }
+    
+    private func expandIconImage(isExpanded: Bool) -> UIImage? {
+        let style = params.style.allDay
+        if let image = isExpanded ? style.collapseIcon : style.expandIcon {
+            return image.withRenderingMode(.alwaysTemplate)
+        }
+        return UIImage(systemName: isExpanded ? style.collapseSymbolName : style.expandSymbolName,
+                       withConfiguration: style.expandSymbolConfiguration)
+    }
+    
     /// Puts the toggle controls into their previous state before the expand/collapse animation.
     func prepareToggleAnimation() {
         clipsToBounds = true
-        expandImageView.transform = CGAffineTransform(rotationAngle: .pi)
         moreButton.alpha = 0
+        
+        switch iconAnimation {
+        case .rotate:
+            expandImageView.transform = CGAffineTransform(rotationAngle: .pi)
+        case .symbolReplace:
+            expandImageView.image = expandIconImage(isExpanded: !params.isExpanded)
+        case .none:
+            break
+        }
     }
     
     /// Animatable part of the expand/collapse animation (call inside an animation block).
     func performToggleAnimation() {
         expandImageView.transform = .identity
         moreButton.alpha = 1
+    }
+    
+    /// SF Symbol transition of the chevron (call right after the animation block is started).
+    func performToggleSymbolTransition() {
+        guard iconAnimation == .symbolReplace,
+              let image = expandIconImage(isExpanded: params.isExpanded) else { return }
+        
+        if #available(iOS 17.0, *) {
+            // the previous symbol has to be on screen first, otherwise there is nothing to transition from
+            DispatchQueue.main.async { [weak self] in
+                self?.expandImageView.setSymbolImage(image, contentTransition: .replace.downUp)
+            }
+        } else {
+            expandImageView.image = image
+        }
     }
     
     func finishToggleAnimation() {
@@ -227,9 +270,8 @@ final class AllDayView: UIView {
             addSubview(titleLabel)
             
             if collapseInfo.isCollapsible {
-                let iconSize: CGFloat = 12
-                expandImageView.image = (params.isExpanded ? params.style.allDay.collapseIcon : params.style.allDay.expandIcon)?
-                    .withRenderingMode(.alwaysTemplate)
+                let iconSize: CGFloat = 16
+                expandImageView.image = expandIconImage(isExpanded: params.isExpanded)
                 expandImageView.tintColor = params.style.allDay.expandIconColor
                 expandImageView.frame = CGRect(x: titleLabel.frame.midX - iconSize * 0.5,
                                                y: titleLabel.frame.maxY,

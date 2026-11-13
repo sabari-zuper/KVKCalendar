@@ -632,11 +632,28 @@ public struct AllDayStyle {
     public var moreBackgroundColor: UIColor = UIColor.white.withAlphaComponent(0.6)
     public var moreBorderColor: UIColor = .lightGray
     public var moreHeight: CGFloat = 24
-    public var expandIcon: UIImage? = UIImage(systemName: "chevron.down")
-    public var collapseIcon: UIImage? = UIImage(systemName: "chevron.up")
+    /// SF Symbol shown under the "all-day" title while collapsed.
+    public var expandSymbolName: String = "chevron.down"
+    /// SF Symbol shown under the "all-day" title while expanded.
+    public var collapseSymbolName: String = "chevron.up"
+    public var expandSymbolConfiguration: UIImage.SymbolConfiguration = .init(pointSize: 11, weight: .semibold)
+    /// Custom image instead of `expandSymbolName`.
+    public var expandIcon: UIImage? = nil
+    /// Custom image instead of `collapseSymbolName`.
+    public var collapseIcon: UIImage? = nil
     public var expandIconColor: UIColor = .darkGray
+    public var expandIconAnimation: ExpandIconAnimation = .symbolReplace
     /// Duration of the expand/collapse animation. `0` - no animation.
     public var expandAnimationDuration: TimeInterval = 0.25
+    
+    public enum ExpandIconAnimation: Int {
+        /// The icon is swapped without animation.
+        case none
+        /// The icon turns 180° together with the all-day area.
+        case rotate
+        /// SF Symbol replace transition (iOS 17+). Falls back to `rotate` on older systems.
+        case symbolReplace
+    }
 
     @available(swift, deprecated: 0.5.0)
     public enum AxisMode: Int {
@@ -1053,10 +1070,14 @@ extension AllDayStyle: Equatable {
         && compare(\.moreBackgroundColor)
         && compare(\.moreBorderColor)
         && compare(\.moreHeight)
+        && compare(\.expandSymbolName)
+        && compare(\.collapseSymbolName)
+        && compare(\.expandSymbolConfiguration)
         && compare(\.expandIcon)
         && compare(\.collapseIcon)
         && compare(\.expandIconColor)
         && compare(\.expandAnimationDuration)
+        && compare(\.expandIconAnimation)
     }
     
 }

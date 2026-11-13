@@ -404,6 +404,7 @@ extension TimelineView {
         }, completion: { _ in
             newAllDayView.finishToggleAnimation()
         })
+        newAllDayView.performToggleSymbolTransition()
     }
     
     public func getTimelineLabel(hour: Int) -> TimelineLabel? {
