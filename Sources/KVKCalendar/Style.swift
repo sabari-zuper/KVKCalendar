@@ -635,6 +635,8 @@ public struct AllDayStyle {
     public var expandIcon: UIImage? = UIImage(systemName: "chevron.down")
     public var collapseIcon: UIImage? = UIImage(systemName: "chevron.up")
     public var expandIconColor: UIColor = .darkGray
+    /// Duration of the expand/collapse animation. `0` - no animation.
+    public var expandAnimationDuration: TimeInterval = 0.25
 
     @available(swift, deprecated: 0.5.0)
     public enum AxisMode: Int {
@@ -1054,6 +1056,7 @@ extension AllDayStyle: Equatable {
         && compare(\.expandIcon)
         && compare(\.collapseIcon)
         && compare(\.expandIconColor)
+        && compare(\.expandAnimationDuration)
     }
     
 }

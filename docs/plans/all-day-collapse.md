@@ -5,7 +5,7 @@ Status: implemented (week and day timelines).
 ## Goal
 
 The all-day area above the timeline grows with the number of all-day events and can push the
-timeline far down. We want it to show at most N rows (2 in our app) and a **"+N more"** button.
+timeline far down. We want it to show at most N rows (3 in our app) and a **"+N more"** button.
 Tapping the button, or the chevron under the "all-day" title, expands the area to show every
 event. When expanded, it shows a **"Show less"** button and an up chevron to collapse it again.
 
@@ -24,7 +24,7 @@ The feature is opt-in. If `maxCollapsedRows` is `nil`, the old behaviour is unch
 
 ```swift
 var style = Style()
-style.allDay.maxCollapsedRows = 2
+style.allDay.maxCollapsedRows = 3
 ```
 
 New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
@@ -37,6 +37,7 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 | `lessTitle` | `"Show less"` | `nil` hides the button when expanded (only the chevron collapses). |
 | `moreFont`, `moreTextColor`, `moreBackgroundColor`, `moreBorderColor`, `moreHeight` | | Pill button look. Dark mode handled in `adaptiveStyle`. |
 | `expandIcon`, `collapseIcon`, `expandIconColor` | `chevron.down` / `chevron.up` | Chevron under the "all-day" title. |
+| `expandAnimationDuration` | `0.25` | Expand/collapse animation length. `0` turns the animation off. |
 
 ## How it works
 
@@ -65,7 +66,15 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
    - flips `paramaters.isAllDayExpanded`;
    - reloads the timeline without auto-scrolling to the current time;
    - keeps the timeline right under the all-day area. If it was at the top it stays at
-     the top; if it was scrolled down, the position is kept.
+     the top; if it was scrolled down, the position is kept. The math uses
+     `adjustedContentInset`, so a safe-area inset is taken into account.
+   - **animates** the change when `expandAnimationDuration > 0`. The rebuilt `AllDayView`
+     starts at the old frame with `clipsToBounds = true` and animates to its new frame. In
+     the same block, the timeline's top inset and offset move to their new values, the
+     chevron rotates 180° (`prepareToggleAnimation` / `performToggleAnimation`), and the
+     pill fades in. Expanding reveals the extra rows from the top down; collapsing shrinks
+     the area while the timeline slides up with it.
+   - Cached neighbour pages are switched without animation (they are off screen).
 5. **Keeping the state**: `TimelineView.Parameters.isAllDayExpanded` reports changes through
    `didChangeParameters`.
    - `WeekView` / `DayView` store the value and pass it to every new `TimelineView`.
@@ -84,7 +93,7 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 - `Sources/KVKCalendar/TimelinePageView.swift`: `reloadAllDayExpanded`.
 - `Sources/KVKCalendar/WeekView.swift`, `DayView.swift`: keep the state across pages.
 - `Tests/KVKCalendarTests/AllDayCollapseTests.swift`: counting logic.
-- `Example/KVKCalendar/KVKCalendarSettings.swift`: enables `maxCollapsedRows = 2`.
+- `Example/KVKCalendar/KVKCalendarSettings.swift`: enables `maxCollapsedRows = 3`.
 
 ## Decisions
 
@@ -101,6 +110,8 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
 - With a custom corner header (`dequeueAllDayCornerHeader`), no chevron is added, and the
   pill is the only toggle. If `lessTitle == nil` as well, there is no way to collapse.
 - Not visually tested with `allDay.isPinned = false`.
+- The small "events above / below" stub indicators (`timeline.isHiddenStubEvent = false`)
+  move to their new position straight away instead of animating with the bar.
 - Already in the code before this change: `AllDayView.updateStyle` adds the event views and
   divider lines again without removing the old ones. Toggling isn't affected, because it
   rebuilds the view.
@@ -120,6 +131,6 @@ New `AllDayStyle` options (`Sources/KVKCalendar/Style.swift`):
   it with `view.layer.render(in:)` to a PNG (`drawHierarchy` gives a blank image in SPM tests).
 - Manual check in the app:
   - Week view with 3+ all-day events on one day shows 2 rows and "+N more".
-  - Tapping the pill or the chevron expands and collapses.
+  - Tapping the pill or the chevron expands and collapses with an animation.
   - The state is kept when paging between weeks.
   - The timeline stays right under the bar.

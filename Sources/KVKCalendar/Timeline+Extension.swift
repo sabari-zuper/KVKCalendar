@@ -347,23 +347,63 @@ extension TimelineView {
     }
     
     func toggleAllDayExpanded() {
-        setAllDayExpanded(!paramaters.isAllDayExpanded)
+        setAllDayExpanded(!paramaters.isAllDayExpanded, animated: style.allDay.expandAnimationDuration > 0)
     }
     
-    func setAllDayExpanded(_ isExpanded: Bool) {
+    private var allDayView: AllDayView? {
+        let container = style.allDay.isPinned ? self : scrollView
+        return container.subviews.first(where: { $0.tag == tagAllDayEventView }) as? AllDayView
+    }
+    
+    func setAllDayExpanded(_ isExpanded: Bool, animated: Bool = false) {
         guard paramaters.isAllDayExpanded != isExpanded else { return }
         
-        let wasAtTop = scrollView.contentOffset.y <= -scrollView.contentInset.top + 1
+        let oldAllDayFrame = allDayView?.frame
+        let oldInsetTop = scrollView.contentInset.top
+        let oldOffsetY = scrollView.contentOffset.y
+        // safe area etc. added by the system on top of `contentInset`
+        let systemInsetTop = scrollView.adjustedContentInset.top - oldInsetTop
+        let wasAtTop = oldOffsetY <= -(oldInsetTop + systemInsetTop) + 1
         paramaters.isAllDayExpanded = isExpanded
         doNotScrollToCurrentTimeAndRunAction { [weak self] in
             self?.reloadTimeline()
         }
         
         // the all-day area changed its height, keep the timeline right under it
-        let minOffsetY = -scrollView.contentInset.top
-        if wasAtTop || scrollView.contentOffset.y < minOffsetY {
-            scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: minOffsetY), animated: false)
+        let newInsetTop = scrollView.contentInset.top
+        let minOffsetY = -(newInsetTop + systemInsetTop)
+        var newOffsetY = scrollView.contentOffset.y
+        if wasAtTop || newOffsetY < minOffsetY {
+            newOffsetY = minOffsetY
         }
+        
+        guard animated,
+              let newAllDayView = allDayView,
+              let oldAllDayFrame = oldAllDayFrame,
+              oldAllDayFrame != newAllDayView.frame else {
+            scrollView.contentOffset.y = newOffsetY
+            return
+        }
+        
+        // start from the previous size and grow/shrink to the new one,
+        // the new content is clipped while the area is changing its height
+        let newAllDayFrame = newAllDayView.frame
+        newAllDayView.frame = oldAllDayFrame
+        newAllDayView.prepareToggleAnimation()
+        scrollView.contentInset.top = oldInsetTop
+        scrollView.contentOffset.y = oldOffsetY
+        
+        UIView.animate(withDuration: style.allDay.expandAnimationDuration,
+                       delay: 0,
+                       options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction],
+                       animations: { [weak self] in
+            newAllDayView.frame = newAllDayFrame
+            newAllDayView.performToggleAnimation()
+            self?.scrollView.contentInset.top = newInsetTop
+            self?.scrollView.contentOffset.y = newOffsetY
+        }, completion: { _ in
+            newAllDayView.finishToggleAnimation()
+        })
     }
     
     public func getTimelineLabel(hour: Int) -> TimelineLabel? {

@@ -163,6 +163,23 @@ final class AllDayView: UIView {
         params.didToggleExpand?()
     }
     
+    /// Puts the toggle controls into their previous state before the expand/collapse animation.
+    func prepareToggleAnimation() {
+        clipsToBounds = true
+        expandImageView.transform = CGAffineTransform(rotationAngle: .pi)
+        moreButton.alpha = 0
+    }
+    
+    /// Animatable part of the expand/collapse animation (call inside an animation block).
+    func performToggleAnimation() {
+        expandImageView.transform = .identity
+        moreButton.alpha = 1
+    }
+    
+    func finishToggleAnimation() {
+        clipsToBounds = false
+    }
+    
     private func setupView() {
         backgroundColor = params.style.allDay.backgroundColor
         subviews.filter { $0.tag == 123 }.forEach { $0.removeFromSuperview() }
