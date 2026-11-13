@@ -23,17 +23,21 @@ public final class DayView: UIView {
     weak var delegate: DisplayDelegate?
     weak var dataSource: DisplayDataSource?
     
-    var scrollableWeekView = ScrollableWeekView(parameters: .init(frame: .zero,
-                                                                  weeks: [],
-                                                                  date: Date(),
-                                                                  type: .day,
-                                                                  style: Style()))
+    var scrollableWeekView = ScrollableWeekView(
+        parameters: .init(
+            frame: .zero,
+            weeks: [],
+            date: Date(),
+            type: .day
+        )
+    )
     
     public var timelinePage = TimelinePageView(maxLimit: 0, pages: [], frame: .zero)
     
     private var topBackgroundView = UIView()
     private var isAvailableEventViewer: Bool = false
     private var scrollToCurrentTimeOnlyOnInit: Bool?
+    private var isAllDayExpanded = false
     
     init(parameters: Parameters, frame: CGRect) {
         self.parameters = parameters
@@ -301,7 +305,8 @@ extension DayView: CalendarSettingProtocol {
         viewFrame.origin = .zero
         
         let view = TimelineView(parameters: .init(style: style, type: .day, scale: timelineScale,
-                                                  scrollToCurrentTimeOnlyOnInit: scrollToCurrentTimeOnlyOnInit),
+                                                  scrollToCurrentTimeOnlyOnInit: scrollToCurrentTimeOnlyOnInit,
+                                                  isAllDayExpanded: isAllDayExpanded),
                                 frame: viewFrame)
         view.delegate = self
         view.dataSource = dataSource
@@ -314,6 +319,11 @@ extension DayView: CalendarSettingProtocol {
             }
             if params.scrollToCurrentTimeOnlyOnInit != self?.scrollToCurrentTimeOnlyOnInit {
                 self?.scrollToCurrentTimeOnlyOnInit = params.scrollToCurrentTimeOnlyOnInit
+            }
+            if params.isAllDayExpanded != self?.isAllDayExpanded {
+                self?.isAllDayExpanded = params.isAllDayExpanded
+                // keep the same state on the cached neighbour pages
+                self?.timelinePage.reloadAllDayExpanded(params.isAllDayExpanded, excludeCurrentPage: true)
             }
         }
         return view
@@ -353,13 +363,20 @@ extension DayView: CalendarSettingProtocol {
         } else {
             heightView = style.headerScroll.heightHeaderWeek + style.headerScroll.heightSubviewHeader
         }
-        let view = ScrollableWeekView(parameters: .init(frame: CGRect(x: 0, y: 0,
-                                                                      width: frame.width,
-                                                                      height: heightView),
-                                                        weeks: parameters.data.daysBySection,
-                                                        date: parameters.data.date,
-                                                        type: .day,
-                                                        style: style))
+        let view = ScrollableWeekView(
+            parameters: .init(
+                frame: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: frame.width,
+                    height: heightView
+                ),
+                weeks: parameters.data.daysBySection,
+                date: parameters.data.date,
+                type: .day,
+                style: style
+            )
+        )
         view.dataSource = dataSource
         view.didSelectDate = { [weak self] (date, type) in
             guard let self = self else { return }

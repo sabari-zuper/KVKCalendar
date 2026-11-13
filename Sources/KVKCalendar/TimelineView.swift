@@ -16,6 +16,7 @@ public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
         var type: CalendarType
         var scale: CGFloat = 1
         var scrollToCurrentTimeOnlyOnInit: Bool?
+        var isAllDayExpanded: Bool = false
     }
     
     weak var delegate: TimelineDelegate?
@@ -29,7 +30,8 @@ public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
             timeSystem = paramaters.style.timeSystem
             
             if oldValue.scale != paramaters.scale
-                || oldValue.scrollToCurrentTimeOnlyOnInit != paramaters.scrollToCurrentTimeOnlyOnInit {
+                || oldValue.scrollToCurrentTimeOnlyOnInit != paramaters.scrollToCurrentTimeOnlyOnInit
+                || oldValue.isAllDayExpanded != paramaters.isAllDayExpanded {
                 didChangeParameters?(paramaters)
             }
         }
@@ -490,7 +492,8 @@ public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
                 scrollView.addSubview(allDayView)
             }
             
-            setOffsetScrollView(offsetY: offsetY)
+            // the collapsible all-day area can shrink, so the inset has to follow it
+            setOffsetScrollView(offsetY: offsetY, force: style.allDay.maxCollapsedRows != nil)
         } else {
             setOffsetScrollView(offsetY: 0, force: true)
         }
@@ -502,8 +505,11 @@ public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
             }
             scrollView.contentSize = CGSize(width: frame.width, height: allHeight)
         } else {
-            let heightAllTimes = timeLabels.reduce(0, { $0 + ($1.frame.height + calculatedTimeY) }) - calculatedTimeY
-            scrollView.contentSize = CGSize(width: frame.width, height: heightAllTimes)
+            // bottom offset is 40
+            scrollView.contentSize = CGSize(
+                width: frame.width,
+                height: (timeLabels.last?.frame.origin.y ?? 0) + 40
+            )
         }
         
         if !forceDisableScrollToCurrentTime {

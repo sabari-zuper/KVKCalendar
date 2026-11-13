@@ -34,6 +34,7 @@ public struct Style {
     public var timeZoneIds: [String] = ["America/New_York", "Europe/London", "Europe/Moscow", "Asia/Tokyo"]
     public var selectedTimeZones: [TimeZone]
     
+    @MainActor
     public init(configureAsDefaultCalendar: Bool = true) {
         selectedTimeZones = [timezone]
         
@@ -576,16 +577,7 @@ public struct YearStyle {
     public var colorSelectDate: UIColor = .white
     public var colorWeekendDate: UIColor = .gray
     public var colorBackgroundWeekendDate: UIColor = .clear
-    public var weekFontPad: UIFont = .boldSystemFont(ofSize: 14)
-    public var weekFontPhone: UIFont = .boldSystemFont(ofSize: 8)
-    public var weekFont: UIFont {
-        switch Platform.currentInterface {
-        case .phone:
-            return weekFontPhone
-        default:
-            return weekFontPad
-        }
-    }
+    public var weekFont: UIFont = .boldSystemFont(ofSize: 14)
     public var fontTitle: UIFont = .systemFont(ofSize: 19)
     public var colorTitle: UIColor = .black
     public var colorBackgroundHeader: UIColor = gainsboro.withAlphaComponent(0.2)
@@ -593,16 +585,7 @@ public struct YearStyle {
     public var colorTitleHeader: UIColor = .black
     public var heightTitleHeader: CGFloat = 50
     public var alignmentTitleHeader: NSTextAlignment = .left
-    public var fontDayTitlePad: UIFont = .systemFont(ofSize: 15)
-    public var fontDayTitlePhone: UIFont = .systemFont(ofSize: 11)
-    public var fontDayTitle: UIFont {
-        switch Platform.currentInterface {
-        case .phone:
-            return fontDayTitlePhone
-        default:
-            return fontDayTitlePad
-        }
-    }
+    public var fontDayTitle: UIFont = .systemFont(ofSize: 15)
     public var colorDayTitle: UIColor = .black
     public var selectCalendarType: CalendarType = .month
     public var isAnimateSelection: Bool = false
@@ -633,6 +616,47 @@ public struct AllDayStyle {
     public var eventCorners: UIRectCorner = .allCorners
     public var eventCornersRadius: CGSize = CGSize(width: 5, height: 5)
     public var isHiddenStubEvent: Bool = true
+    
+    /// Collapses the all-day area to the given number of rows and shows a "+N more" button.
+    /// Tapping the button (or the chevron under the title) expands the area to show all events.
+    /// `nil` keeps the default behaviour (the area grows up to `maxHeight` and scrolls).
+    public var maxCollapsedRows: Int? = nil
+    /// Maximum height of the expanded all-day area. `nil` - half of the timeline height.
+    public var maxExpandedHeight: CGFloat? = nil
+    /// Maximum number of rows shown at once in the expanded all-day area, the rest scrolls.
+    /// Takes priority over `maxExpandedHeight`.
+    public var maxExpandedRows: Int? = nil
+    /// Format for the collapsed button title, `%d` is replaced by the number of hidden events.
+    public var moreTitleFormat: String = "+%d more"
+    /// Title for the button in the expanded state. `nil` hides the button (the chevron still collapses).
+    public var lessTitle: String? = "Show less"
+    public var moreFont: UIFont = .systemFont(ofSize: 13, weight: .medium)
+    public var moreTextColor: UIColor = .darkGray
+    public var moreBackgroundColor: UIColor = UIColor.white.withAlphaComponent(0.6)
+    public var moreBorderColor: UIColor = .lightGray
+    public var moreHeight: CGFloat = 24
+    /// SF Symbol shown under the "all-day" title while collapsed.
+    public var expandSymbolName: String = "chevron.down"
+    /// SF Symbol shown under the "all-day" title while expanded.
+    public var collapseSymbolName: String = "chevron.up"
+    public var expandSymbolConfiguration: UIImage.SymbolConfiguration = .init(pointSize: 11, weight: .semibold)
+    /// Custom image instead of `expandSymbolName`.
+    public var expandIcon: UIImage? = nil
+    /// Custom image instead of `collapseSymbolName`.
+    public var collapseIcon: UIImage? = nil
+    public var expandIconColor: UIColor = .darkGray
+    public var expandIconAnimation: ExpandIconAnimation = .symbolReplace
+    /// Duration of the expand/collapse animation. `0` - no animation.
+    public var expandAnimationDuration: TimeInterval = 0.25
+    
+    public enum ExpandIconAnimation: Int {
+        /// The icon is swapped without animation.
+        case none
+        /// The icon turns 180° together with the all-day area.
+        case rotate
+        /// SF Symbol replace transition (iOS 17+). Falls back to `rotate` on older systems.
+        case symbolReplace
+    }
 
     @available(swift, deprecated: 0.5.0)
     public enum AxisMode: Int {
@@ -681,6 +705,7 @@ public struct ListViewStyle {
 }
 
 extension Style {
+    @MainActor
     var adaptiveStyle: Style {
         guard followInSystemTheme else { return self }
         
@@ -795,6 +820,10 @@ extension Style {
         newStyle.allDay.backgroundColor = UIColor.useForStyle(dark: .systemGray6, white: newStyle.allDay.backgroundColor)
         newStyle.allDay.titleColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.titleColor)
         newStyle.allDay.textColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.textColor)
+        newStyle.allDay.moreTextColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.moreTextColor)
+        newStyle.allDay.moreBackgroundColor = UIColor.useForStyle(dark: .systemGray5, white: newStyle.allDay.moreBackgroundColor)
+        newStyle.allDay.moreBorderColor = UIColor.useForStyle(dark: .systemGray3, white: newStyle.allDay.moreBorderColor)
+        newStyle.allDay.expandIconColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.expandIconColor)
         
         // list view
         newStyle.list.backgroundColor = UIColor.useForStyle(dark: .black, white: newStyle.list.backgroundColor)
@@ -831,7 +860,7 @@ extension Style: Equatable {
 
 extension YearStyle: Equatable {
     
-    public static func == (lhs: YearStyle, rhs: YearStyle) -> Bool {
+    nonisolated public static func == (lhs: YearStyle, rhs: YearStyle) -> Bool {
         func compare<E: Equatable>(_ kp: KeyPath<YearStyle, E>) -> Bool {
             return lhs[keyPath: kp] == rhs[keyPath: kp]
         }
@@ -844,8 +873,6 @@ extension YearStyle: Equatable {
         && compare(\.colorSelectDate)
         && compare(\.colorWeekendDate)
         && compare(\.colorBackgroundWeekendDate)
-        && compare(\.weekFontPad)
-        && compare(\.weekFontPhone)
         && compare(\.weekFont)
         && compare(\.fontTitle)
         && compare(\.colorTitle)
@@ -854,8 +881,6 @@ extension YearStyle: Equatable {
         && compare(\.colorTitleHeader)
         && compare(\.heightTitleHeader)
         && compare(\.alignmentTitleHeader)
-        && compare(\.fontDayTitlePad)
-        && compare(\.fontDayTitlePhone)
         && compare(\.fontDayTitle)
         && compare(\.colorDayTitle)
         && compare(\.selectCalendarType)
@@ -1039,6 +1064,24 @@ extension AllDayStyle: Equatable {
         && compare(\.eventCorners)
         && compare(\.eventCornersRadius)
         && compare(\.isHiddenStubEvent)
+        && compare(\.maxCollapsedRows)
+        && compare(\.maxExpandedHeight)
+        && compare(\.maxExpandedRows)
+        && compare(\.moreTitleFormat)
+        && compare(\.lessTitle)
+        && compare(\.moreFont)
+        && compare(\.moreTextColor)
+        && compare(\.moreBackgroundColor)
+        && compare(\.moreBorderColor)
+        && compare(\.moreHeight)
+        && compare(\.expandSymbolName)
+        && compare(\.collapseSymbolName)
+        && compare(\.expandSymbolConfiguration)
+        && compare(\.expandIcon)
+        && compare(\.collapseIcon)
+        && compare(\.expandIconColor)
+        && compare(\.expandAnimationDuration)
+        && compare(\.expandIconAnimation)
     }
     
 }

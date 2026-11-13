@@ -27,15 +27,19 @@ final class WeekView: UIView {
     weak var delegate: DisplayDelegate?
     weak var dataSource: DisplayDataSource?
     
-    var scrollableWeekView = ScrollableWeekView(parameters: .init(frame: .zero,
-                                                                  weeks: [],
-                                                                  date: Date(),
-                                                                  type: .week,
-                                                                  style: Style()))
+    var scrollableWeekView = ScrollableWeekView(
+        parameters: .init(
+            frame: .zero,
+            weeks: [],
+            date: Date(),
+            type: .week
+        )
+    )
     var timelinePage = TimelinePageView(maxLimit: 0, pages: [], frame: .zero)
     
     private var topBackgroundView = UIView()
     private var scrollToCurrentTimeOnlyOnInit: Bool?
+    private var isAllDayExpanded = false
     
     private lazy var titleInCornerLabel: UILabel = {
         let label = UILabel()
@@ -227,7 +231,8 @@ extension WeekView: CalendarSettingProtocol {
         let view = TimelineView(parameters: .init(style: style,
                                                   type: .week,
                                                   scale: timelineScale,
-                                                  scrollToCurrentTimeOnlyOnInit: scrollToCurrentTimeOnlyOnInit),
+                                                  scrollToCurrentTimeOnlyOnInit: scrollToCurrentTimeOnlyOnInit,
+                                                  isAllDayExpanded: isAllDayExpanded),
                                 frame: viewFrame)
         view.delegate = self
         view.dataSource = dataSource
@@ -240,6 +245,11 @@ extension WeekView: CalendarSettingProtocol {
             }
             if params.scrollToCurrentTimeOnlyOnInit != self?.scrollToCurrentTimeOnlyOnInit {
                 self?.scrollToCurrentTimeOnlyOnInit = params.scrollToCurrentTimeOnlyOnInit
+            }
+            if params.isAllDayExpanded != self?.isAllDayExpanded {
+                self?.isAllDayExpanded = params.isAllDayExpanded
+                // keep the same state on the cached neighbour pages
+                self?.timelinePage.reloadAllDayExpanded(params.isAllDayExpanded, excludeCurrentPage: true)
             }
         }
         return view
@@ -283,12 +293,20 @@ extension WeekView: CalendarSettingProtocol {
         } else {
             heightView = style.headerScroll.heightHeaderWeek + style.headerScroll.heightSubviewHeader
         }
-        let view = ScrollableWeekView(parameters: .init(frame: CGRect(x: 0, y: 0,
-                                                                       width: frame.width, height: heightView),
-                                                         weeks: parameters.data.daysBySection,
-                                                         date: parameters.data.date,
-                                                         type: .week,
-                                                         style: style))
+        let view = ScrollableWeekView(
+            parameters: .init(
+                frame: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: frame.width,
+                    height: heightView
+                ),
+                weeks: parameters.data.daysBySection,
+                date: parameters.data.date,
+                type: .week,
+                style: style
+            )
+        )
         view.dataSource = dataSource
         view.didSelectDate = { [weak self] (date, type) in
             guard let self = self else { return }

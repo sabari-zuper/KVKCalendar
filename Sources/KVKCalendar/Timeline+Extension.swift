@@ -302,11 +302,26 @@ extension TimelineView {
         eventView.deselectEvent()
     }
     
+    @MainActor
     func createAllDayEvents(events: [AllDayView.PrepareEvents], maxEvents: Int) -> AllDayView? {
         guard !events.allSatisfy({ $0.events.isEmpty }) else { return nil }
         
         var allDayHeight = style.allDay.height
-        if 3...4 ~= maxEvents {
+        if let maxRows = style.allDay.maxCollapsedRows {
+            let info = AllDayView.collapseInfo(prepareEvents: events, type: paramaters.type, maxRows: maxRows)
+            let isExpanded = paramaters.isAllDayExpanded && info.isCollapsible
+            var rows = isExpanded ? info.totalRows : info.visibleRows
+            if isExpanded, let maxExpandedRows = style.allDay.maxExpandedRows {
+                // never smaller than the collapsed area
+                rows = min(rows, max(maxExpandedRows, maxRows))
+            }
+            let moreAreaHeight = AllDayView.moreButtonAreaHeight(info: info, isExpanded: isExpanded, style: style.allDay)
+            allDayHeight = CGFloat(rows) * style.allDay.height + moreAreaHeight + 2
+            if isExpanded && style.allDay.maxExpandedRows == nil {
+                let maxExpandedHeight = style.allDay.maxExpandedHeight ?? bounds.height * 0.5
+                allDayHeight = min(allDayHeight, max(maxExpandedHeight, style.allDay.height * CGFloat(maxRows) + moreAreaHeight))
+            }
+        } else if 3...4 ~= maxEvents {
             allDayHeight *= 2
         } else if maxEvents > 4 {
             allDayHeight = style.allDay.maxHeight
@@ -324,11 +339,76 @@ extension TimelineView {
                                                       prepareEvents: events,
                                                       type: paramaters.type,
                                                       style: style,
-                                                      delegate: delegate),
+                                                      delegate: delegate,
+                                                      isExpanded: paramaters.isAllDayExpanded,
+                                                      didToggleExpand: { [weak self] in
+                                                          self?.toggleAllDayExpanded()
+                                                      }),
                                     frame: CGRect(x: 0, y: yPoint, width: bounds.width, height: allDayHeight),
                                     dataSource: dataSource)
         allDayView.tag = tagAllDayEventView
         return allDayView
+    }
+    
+    func toggleAllDayExpanded() {
+        setAllDayExpanded(!paramaters.isAllDayExpanded, animated: style.allDay.expandAnimationDuration > 0)
+    }
+    
+    private var allDayView: AllDayView? {
+        let container = style.allDay.isPinned ? self : scrollView
+        return container.subviews.first(where: { $0.tag == tagAllDayEventView }) as? AllDayView
+    }
+    
+    func setAllDayExpanded(_ isExpanded: Bool, animated: Bool = false) {
+        guard paramaters.isAllDayExpanded != isExpanded else { return }
+        
+        let oldAllDayFrame = allDayView?.frame
+        let oldInsetTop = scrollView.contentInset.top
+        let oldOffsetY = scrollView.contentOffset.y
+        // safe area etc. added by the system on top of `contentInset`
+        let systemInsetTop = scrollView.adjustedContentInset.top - oldInsetTop
+        let wasAtTop = oldOffsetY <= -(oldInsetTop + systemInsetTop) + 1
+        paramaters.isAllDayExpanded = isExpanded
+        doNotScrollToCurrentTimeAndRunAction { [weak self] in
+            self?.reloadTimeline()
+        }
+        
+        // the all-day area changed its height, keep the timeline right under it
+        let newInsetTop = scrollView.contentInset.top
+        let minOffsetY = -(newInsetTop + systemInsetTop)
+        var newOffsetY = scrollView.contentOffset.y
+        if wasAtTop || newOffsetY < minOffsetY {
+            newOffsetY = minOffsetY
+        }
+        
+        guard animated,
+              let newAllDayView = allDayView,
+              let oldAllDayFrame = oldAllDayFrame,
+              oldAllDayFrame != newAllDayView.frame else {
+            scrollView.contentOffset.y = newOffsetY
+            return
+        }
+        
+        // start from the previous size and grow/shrink to the new one,
+        // the new content is clipped while the area is changing its height
+        let newAllDayFrame = newAllDayView.frame
+        newAllDayView.frame = oldAllDayFrame
+        newAllDayView.prepareToggleAnimation()
+        scrollView.contentInset.top = oldInsetTop
+        scrollView.contentOffset.y = oldOffsetY
+        
+        UIView.animate(withDuration: style.allDay.expandAnimationDuration,
+                       delay: 0,
+                       options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction],
+                       animations: { [weak self] in
+            newAllDayView.frame = newAllDayFrame
+            newAllDayView.performToggleAnimation()
+            self?.scrollView.contentInset.top = newInsetTop
+            self?.scrollView.contentOffset.y = newOffsetY
+        }, completion: { _ in
+            newAllDayView.finishToggleAnimation()
+        })
+        newAllDayView.performToggleSymbolTransition()
     }
     
     public func getTimelineLabel(hour: Int) -> TimelineLabel? {
@@ -859,7 +939,7 @@ extension TimelineView: CalendarSettingProtocol {
         let top = scrollView.topAnchor.constraint(equalTo: topAnchor)
         let left = scrollView.leftAnchor.constraint(equalTo: leftAnchor)
         let right = scrollView.rightAnchor.constraint(equalTo: rightAnchor)
-        let bottom = scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        let bottom = scrollView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor)
         NSLayoutConstraint.activate([top, left, right, bottom])
     }
 

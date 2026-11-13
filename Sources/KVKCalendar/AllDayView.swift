@@ -24,6 +24,54 @@ final class AllDayView: UIView {
         let type: CalendarType
         var style: Style
         weak var delegate: TimelineDelegate?
+        var isExpanded: Bool = false
+        var didToggleExpand: (() -> Void)?
+    }
+    
+    struct CollapseInfo {
+        let totalRows: Int
+        let visibleRows: Int
+        let hiddenCount: Int
+        
+        var isCollapsible: Bool {
+            hiddenCount > 0
+        }
+    }
+    
+    static func collapseInfo(prepareEvents: [PrepareEvents], type: CalendarType, maxRows: Int?) -> CollapseInfo {
+        switch type {
+        case .day:
+            let count = prepareEvents.first?.events.count ?? 0
+            let totalRows = Int((CGFloat(count) / 2).rounded(.up))
+            guard let maxRows = maxRows.map({ max($0, 1) }), totalRows > maxRows else {
+                return CollapseInfo(totalRows: totalRows, visibleRows: totalRows, hiddenCount: 0)
+            }
+            return CollapseInfo(totalRows: totalRows, visibleRows: maxRows, hiddenCount: count - maxRows * 2)
+        default:
+            let totalRows = prepareEvents.map { $0.events.count }.max() ?? 0
+            guard let maxRows = maxRows.map({ max($0, 1) }), totalRows > maxRows else {
+                return CollapseInfo(totalRows: totalRows, visibleRows: totalRows, hiddenCount: 0)
+            }
+            // a multi-day event is repeated in every column:
+            // count it once and only if it isn't visible in any other column
+            var visibleIDs = Set<String>()
+            var hiddenIDs = Set<String>()
+            prepareEvents.forEach { (item) in
+                item.events.prefix(maxRows).forEach { visibleIDs.insert($0.ID) }
+                item.events.dropFirst(maxRows).forEach { hiddenIDs.insert($0.ID) }
+            }
+            let hiddenCount = hiddenIDs.subtracting(visibleIDs).count
+            // nothing is really hidden, show all rows so no day looks free when it isn't
+            guard hiddenCount > 0 else {
+                return CollapseInfo(totalRows: totalRows, visibleRows: totalRows, hiddenCount: 0)
+            }
+            return CollapseInfo(totalRows: totalRows, visibleRows: maxRows, hiddenCount: hiddenCount)
+        }
+    }
+    
+    static func moreButtonAreaHeight(info: CollapseInfo, isExpanded: Bool, style: AllDayStyle) -> CGFloat {
+        guard info.isCollapsible, !isExpanded || style.lessTitle != nil else { return 0 }
+        return style.moreHeight + 8
     }
     
     private let titleLabel: UILabel = {
@@ -34,11 +82,34 @@ final class AllDayView: UIView {
     }()
     
     private let scrollView = UIScrollView()
+    
+    private lazy var expandImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .center
+        imageView.tag = 123
+        return imageView
+    }()
+    
+    private lazy var expandButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.tag = 123
+        button.addTarget(self, action: #selector(toggleExpand), for: .touchUpInside)
+        return button
+    }()
+    
+    private lazy var moreButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.tag = 123
+        button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        button.addTarget(self, action: #selector(toggleExpand), for: .touchUpInside)
+        return button
+    }()
     private let linePoints: [CGPoint]
     private var params: Parameters
     private weak var dataSource: DisplayDataSource?
 
     let items: [[AllDayEvent]]
+    private let collapseInfo: CollapseInfo
     
     init(parameters: Parameters, frame: CGRect, dataSource: DisplayDataSource?) {
         self.params = parameters
@@ -47,8 +118,12 @@ final class AllDayView: UIView {
         }
         self.linePoints = parameters.prepareEvents.compactMap({ CGPoint(x: $0.xOffset, y: 0) })
         self.dataSource = dataSource
+        self.collapseInfo = AllDayView.collapseInfo(prepareEvents: parameters.prepareEvents,
+                                                    type: parameters.type,
+                                                    maxRows: parameters.style.allDay.maxCollapsedRows)
         super.init(frame: frame)
         scrollView.tag = 123
+        scrollView.contentInsetAdjustmentBehavior = .never
         setUI()
     }
     
@@ -80,6 +155,74 @@ final class AllDayView: UIView {
         return CGRect(origin: newPoint, size: newSize)
     }
     
+    private var isCollapsed: Bool {
+        collapseInfo.isCollapsible && !params.isExpanded
+    }
+    
+    @objc private func toggleExpand() {
+        params.didToggleExpand?()
+    }
+    
+    private var iconAnimation: AllDayStyle.ExpandIconAnimation {
+        let animation = params.style.allDay.expandIconAnimation
+        if animation == .symbolReplace {
+            if #available(iOS 17.0, *) {
+                return .symbolReplace
+            }
+            return .rotate
+        }
+        return animation
+    }
+    
+    private func expandIconImage(isExpanded: Bool) -> UIImage? {
+        let style = params.style.allDay
+        if let image = isExpanded ? style.collapseIcon : style.expandIcon {
+            return image.withRenderingMode(.alwaysTemplate)
+        }
+        return UIImage(systemName: isExpanded ? style.collapseSymbolName : style.expandSymbolName,
+                       withConfiguration: style.expandSymbolConfiguration)
+    }
+    
+    /// Puts the toggle controls into their previous state before the expand/collapse animation.
+    func prepareToggleAnimation() {
+        clipsToBounds = true
+        moreButton.alpha = 0
+        
+        switch iconAnimation {
+        case .rotate:
+            expandImageView.transform = CGAffineTransform(rotationAngle: .pi)
+        case .symbolReplace:
+            expandImageView.image = expandIconImage(isExpanded: !params.isExpanded)
+        case .none:
+            break
+        }
+    }
+    
+    /// Animatable part of the expand/collapse animation (call inside an animation block).
+    func performToggleAnimation() {
+        expandImageView.transform = .identity
+        moreButton.alpha = 1
+    }
+    
+    /// SF Symbol transition of the chevron (call right after the animation block is started).
+    func performToggleSymbolTransition() {
+        guard iconAnimation == .symbolReplace,
+              let image = expandIconImage(isExpanded: params.isExpanded) else { return }
+        
+        if #available(iOS 17.0, *) {
+            // the previous symbol has to be on screen first, otherwise there is nothing to transition from
+            DispatchQueue.main.async { [weak self] in
+                self?.expandImageView.setSymbolImage(image, contentTransition: .replace.downUp)
+            }
+        } else {
+            expandImageView.image = image
+        }
+    }
+    
+    func finishToggleAnimation() {
+        clipsToBounds = false
+    }
+    
     private func setupView() {
         backgroundColor = params.style.allDay.backgroundColor
         subviews.filter { $0.tag == 123 }.forEach { $0.removeFromSuperview() }
@@ -93,11 +236,20 @@ final class AllDayView: UIView {
         titleLabel.text = params.style.allDay.titleText
                 
         let x = titleLabel.frame.width + titleLabel.frame.origin.x
+        let moreAreaHeight = AllDayView.moreButtonAreaHeight(info: collapseInfo,
+                                                             isExpanded: params.isExpanded,
+                                                             style: params.style.allDay)
         let scrollFrame = CGRect(origin: CGPoint(x: x, y: 0),
-                                 size: CGSize(width: bounds.size.width - x, height: bounds.size.height))
+                                 size: CGSize(width: bounds.size.width - x, height: bounds.size.height - moreAreaHeight))
         
-        let maxItems = CGFloat(items.max(by: { $0.count < $1.count })?.count ?? 0)
+        let maxItems: CGFloat
+        if isCollapsed {
+            maxItems = CGFloat(params.type == .day ? collapseInfo.visibleRows * 2 : collapseInfo.visibleRows)
+        } else {
+            maxItems = CGFloat(items.max(by: { $0.count < $1.count })?.count ?? 0)
+        }
         scrollView.frame = scrollFrame
+        scrollView.isScrollEnabled = !isCollapsed
         
         switch params.type {
         case .day:
@@ -116,14 +268,51 @@ final class AllDayView: UIView {
             addSubview(customHeaderCornerView)
         } else {
             addSubview(titleLabel)
+            
+            if collapseInfo.isCollapsible {
+                let iconSize: CGFloat = 16
+                expandImageView.image = expandIconImage(isExpanded: params.isExpanded)
+                expandImageView.tintColor = params.style.allDay.expandIconColor
+                expandImageView.frame = CGRect(x: titleLabel.frame.midX - iconSize * 0.5,
+                                               y: titleLabel.frame.maxY,
+                                               width: iconSize, height: iconSize)
+                addSubview(expandImageView)
+                
+                expandButton.frame = CGRect(x: 0, y: 0, width: x, height: bounds.height)
+                expandButton.accessibilityLabel = params.isExpanded ? params.style.allDay.lessTitle : moreTitle
+                addSubview(expandButton)
+            }
         }
         addSubview(scrollView)
+        
+        if moreAreaHeight > 0 {
+            let style = params.style.allDay
+            let title = params.isExpanded ? (style.lessTitle ?? "") : moreTitle
+            moreButton.setTitle(title, for: .normal)
+            moreButton.setTitleColor(style.moreTextColor, for: .normal)
+            moreButton.titleLabel?.font = style.moreFont
+            moreButton.backgroundColor = style.moreBackgroundColor
+            moreButton.layer.borderColor = style.moreBorderColor.cgColor
+            moreButton.layer.borderWidth = 1
+            moreButton.layer.cornerRadius = style.moreHeight * 0.5
+            moreButton.sizeToFit()
+            moreButton.frame = CGRect(x: scrollFrame.origin.x + 2,
+                                      y: scrollFrame.maxY + (moreAreaHeight - style.moreHeight) * 0.5,
+                                      width: min(moreButton.frame.width, scrollFrame.width - 4),
+                                      height: style.moreHeight)
+            addSubview(moreButton)
+        }
+    }
+    
+    private var moreTitle: String {
+        String(format: params.style.allDay.moreTitleFormat, collapseInfo.hiddenCount)
     }
     
     private func createEventViews() {
         switch params.type {
         case .day:
-            if let item = items.first {
+            if let allItems = items.first {
+                let item = isCollapsed ? Array(allItems.prefix(collapseInfo.visibleRows * 2)) : allItems
                 item.enumerated().forEach { (event) in
                     let frameEvent = calculateFrame(index: event.offset,
                                                     countEvents: item.count,
@@ -135,7 +324,8 @@ final class AllDayView: UIView {
             }
         case .week:
             items.enumerated().forEach { item in
-                item.element.enumerated().forEach { (event) in
+                let events = isCollapsed ? Array(item.element.prefix(collapseInfo.visibleRows)) : item.element
+                events.enumerated().forEach { (event) in
                     let x = item.offset == 0 ? 0 : event.element.xOffset
                     let frameEvent = CGRect(origin: CGPoint(x: x, y: params.style.allDay.height * CGFloat(event.offset)),
                                             size: CGSize(width: event.element.width - params.style.allDay.offsetWidth,
@@ -168,7 +358,7 @@ final class AllDayView: UIView {
     }
     
     private func createVerticalLine(pointX: CGFloat) -> VerticalLineView {
-        let frame = CGRect(x: pointX, y: 0, width: params.style.timeline.widthLine, height: bounds.height)
+        let frame = CGRect(x: pointX, y: 0, width: params.style.timeline.widthLine, height: scrollView.frame.height)
         let line = VerticalLineView(frame: frame)
         line.backgroundColor = params.style.timeline.separatorLineColor
         line.isHidden = !params.style.week.showVerticalDayDivider

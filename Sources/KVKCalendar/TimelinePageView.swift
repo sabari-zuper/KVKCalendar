@@ -106,6 +106,15 @@ public final class TimelinePageView: UIView {
         }
     }
     
+    func reloadAllDayExpanded(_ isExpanded: Bool, excludeCurrentPage: Bool = false) {
+        var items = pages
+        if excludeCurrentPage {
+            items.removeValue(forKey: currentIndex)
+        }
+        
+        items.values.forEach { $0.setAllDayExpanded(isExpanded) }
+    }
+    
     func reloadCachedControllers() {
         pages = pages.reduce([:], { (acc, item) -> [Int: TimelineView] in
             var accTemp = acc
