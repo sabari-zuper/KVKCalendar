@@ -616,6 +616,25 @@ public struct AllDayStyle {
     public var eventCorners: UIRectCorner = .allCorners
     public var eventCornersRadius: CGSize = CGSize(width: 5, height: 5)
     public var isHiddenStubEvent: Bool = true
+    
+    /// Collapses the all-day area to the given number of rows and shows a "+N more" button.
+    /// Tapping the button (or the chevron under the title) expands the area to show all events.
+    /// `nil` keeps the default behaviour (the area grows up to `maxHeight` and scrolls).
+    public var maxCollapsedRows: Int? = nil
+    /// Maximum height of the expanded all-day area. `nil` - half of the timeline height.
+    public var maxExpandedHeight: CGFloat? = nil
+    /// Format for the collapsed button title, `%d` is replaced by the number of hidden events.
+    public var moreTitleFormat: String = "+%d more"
+    /// Title for the button in the expanded state. `nil` hides the button (the chevron still collapses).
+    public var lessTitle: String? = "Show less"
+    public var moreFont: UIFont = .systemFont(ofSize: 13, weight: .medium)
+    public var moreTextColor: UIColor = .darkGray
+    public var moreBackgroundColor: UIColor = UIColor.white.withAlphaComponent(0.6)
+    public var moreBorderColor: UIColor = .lightGray
+    public var moreHeight: CGFloat = 24
+    public var expandIcon: UIImage? = UIImage(systemName: "chevron.down")
+    public var collapseIcon: UIImage? = UIImage(systemName: "chevron.up")
+    public var expandIconColor: UIColor = .darkGray
 
     @available(swift, deprecated: 0.5.0)
     public enum AxisMode: Int {
@@ -779,6 +798,10 @@ extension Style {
         newStyle.allDay.backgroundColor = UIColor.useForStyle(dark: .systemGray6, white: newStyle.allDay.backgroundColor)
         newStyle.allDay.titleColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.titleColor)
         newStyle.allDay.textColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.textColor)
+        newStyle.allDay.moreTextColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.moreTextColor)
+        newStyle.allDay.moreBackgroundColor = UIColor.useForStyle(dark: .systemGray5, white: newStyle.allDay.moreBackgroundColor)
+        newStyle.allDay.moreBorderColor = UIColor.useForStyle(dark: .systemGray3, white: newStyle.allDay.moreBorderColor)
+        newStyle.allDay.expandIconColor = UIColor.useForStyle(dark: .white, white: newStyle.allDay.expandIconColor)
         
         // list view
         newStyle.list.backgroundColor = UIColor.useForStyle(dark: .black, white: newStyle.list.backgroundColor)
@@ -1019,6 +1042,18 @@ extension AllDayStyle: Equatable {
         && compare(\.eventCorners)
         && compare(\.eventCornersRadius)
         && compare(\.isHiddenStubEvent)
+        && compare(\.maxCollapsedRows)
+        && compare(\.maxExpandedHeight)
+        && compare(\.moreTitleFormat)
+        && compare(\.lessTitle)
+        && compare(\.moreFont)
+        && compare(\.moreTextColor)
+        && compare(\.moreBackgroundColor)
+        && compare(\.moreBorderColor)
+        && compare(\.moreHeight)
+        && compare(\.expandIcon)
+        && compare(\.collapseIcon)
+        && compare(\.expandIconColor)
     }
     
 }

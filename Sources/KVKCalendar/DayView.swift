@@ -37,6 +37,7 @@ public final class DayView: UIView {
     private var topBackgroundView = UIView()
     private var isAvailableEventViewer: Bool = false
     private var scrollToCurrentTimeOnlyOnInit: Bool?
+    private var isAllDayExpanded = false
     
     init(parameters: Parameters, frame: CGRect) {
         self.parameters = parameters
@@ -304,7 +305,8 @@ extension DayView: CalendarSettingProtocol {
         viewFrame.origin = .zero
         
         let view = TimelineView(parameters: .init(style: style, type: .day, scale: timelineScale,
-                                                  scrollToCurrentTimeOnlyOnInit: scrollToCurrentTimeOnlyOnInit),
+                                                  scrollToCurrentTimeOnlyOnInit: scrollToCurrentTimeOnlyOnInit,
+                                                  isAllDayExpanded: isAllDayExpanded),
                                 frame: viewFrame)
         view.delegate = self
         view.dataSource = dataSource
@@ -317,6 +319,11 @@ extension DayView: CalendarSettingProtocol {
             }
             if params.scrollToCurrentTimeOnlyOnInit != self?.scrollToCurrentTimeOnlyOnInit {
                 self?.scrollToCurrentTimeOnlyOnInit = params.scrollToCurrentTimeOnlyOnInit
+            }
+            if params.isAllDayExpanded != self?.isAllDayExpanded {
+                self?.isAllDayExpanded = params.isAllDayExpanded
+                // keep the same state on the cached neighbour pages
+                self?.timelinePage.reloadAllDayExpanded(params.isAllDayExpanded, excludeCurrentPage: true)
             }
         }
         return view

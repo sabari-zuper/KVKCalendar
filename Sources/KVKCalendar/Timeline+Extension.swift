@@ -307,7 +307,17 @@ extension TimelineView {
         guard !events.allSatisfy({ $0.events.isEmpty }) else { return nil }
         
         var allDayHeight = style.allDay.height
-        if 3...4 ~= maxEvents {
+        if let maxRows = style.allDay.maxCollapsedRows {
+            let info = AllDayView.collapseInfo(prepareEvents: events, type: paramaters.type, maxRows: maxRows)
+            let isExpanded = paramaters.isAllDayExpanded && info.isCollapsible
+            let rows = isExpanded ? info.totalRows : info.visibleRows
+            let moreAreaHeight = AllDayView.moreButtonAreaHeight(info: info, isExpanded: isExpanded, style: style.allDay)
+            allDayHeight = CGFloat(rows) * style.allDay.height + moreAreaHeight + 2
+            if isExpanded {
+                let maxExpandedHeight = style.allDay.maxExpandedHeight ?? bounds.height * 0.5
+                allDayHeight = min(allDayHeight, max(maxExpandedHeight, style.allDay.height * CGFloat(maxRows) + moreAreaHeight))
+            }
+        } else if 3...4 ~= maxEvents {
             allDayHeight *= 2
         } else if maxEvents > 4 {
             allDayHeight = style.allDay.maxHeight
@@ -325,11 +335,35 @@ extension TimelineView {
                                                       prepareEvents: events,
                                                       type: paramaters.type,
                                                       style: style,
-                                                      delegate: delegate),
+                                                      delegate: delegate,
+                                                      isExpanded: paramaters.isAllDayExpanded,
+                                                      didToggleExpand: { [weak self] in
+                                                          self?.toggleAllDayExpanded()
+                                                      }),
                                     frame: CGRect(x: 0, y: yPoint, width: bounds.width, height: allDayHeight),
                                     dataSource: dataSource)
         allDayView.tag = tagAllDayEventView
         return allDayView
+    }
+    
+    func toggleAllDayExpanded() {
+        setAllDayExpanded(!paramaters.isAllDayExpanded)
+    }
+    
+    func setAllDayExpanded(_ isExpanded: Bool) {
+        guard paramaters.isAllDayExpanded != isExpanded else { return }
+        
+        let wasAtTop = scrollView.contentOffset.y <= -scrollView.contentInset.top + 1
+        paramaters.isAllDayExpanded = isExpanded
+        doNotScrollToCurrentTimeAndRunAction { [weak self] in
+            self?.reloadTimeline()
+        }
+        
+        // the all-day area changed its height, keep the timeline right under it
+        let minOffsetY = -scrollView.contentInset.top
+        if wasAtTop || scrollView.contentOffset.y < minOffsetY {
+            scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: minOffsetY), animated: false)
+        }
     }
     
     public func getTimelineLabel(hour: Int) -> TimelineLabel? {

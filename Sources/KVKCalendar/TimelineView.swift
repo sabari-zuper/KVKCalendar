@@ -16,6 +16,7 @@ public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
         var type: CalendarType
         var scale: CGFloat = 1
         var scrollToCurrentTimeOnlyOnInit: Bool?
+        var isAllDayExpanded: Bool = false
     }
     
     weak var delegate: TimelineDelegate?
@@ -29,7 +30,8 @@ public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
             timeSystem = paramaters.style.timeSystem
             
             if oldValue.scale != paramaters.scale
-                || oldValue.scrollToCurrentTimeOnlyOnInit != paramaters.scrollToCurrentTimeOnlyOnInit {
+                || oldValue.scrollToCurrentTimeOnlyOnInit != paramaters.scrollToCurrentTimeOnlyOnInit
+                || oldValue.isAllDayExpanded != paramaters.isAllDayExpanded {
                 didChangeParameters?(paramaters)
             }
         }
@@ -490,7 +492,8 @@ public final class TimelineView: UIView, EventDateProtocol, CalendarTimer {
                 scrollView.addSubview(allDayView)
             }
             
-            setOffsetScrollView(offsetY: offsetY)
+            // the collapsible all-day area can shrink, so the inset has to follow it
+            setOffsetScrollView(offsetY: offsetY, force: style.allDay.maxCollapsedRows != nil)
         } else {
             setOffsetScrollView(offsetY: 0, force: true)
         }
